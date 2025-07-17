@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/FediAPI.iml" filepath="$PROJECT_DIR$/.idea/FediAPI.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/LoftlyAPI.iml" filepath="$PROJECT_DIR$/.idea/LoftlyAPI.iml" />
     </modules>
   </component>
 </project>
