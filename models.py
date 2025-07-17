@@ -61,6 +61,7 @@ class Post(BaseModel):
 
     #Media
     media_filenames: Optional[List[str]] = None
+    lemmy_image_url: Optional[str] = None
     video_filename: Optional[str] = None
 
     #Polls

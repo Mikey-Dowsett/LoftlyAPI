@@ -45,7 +45,7 @@ async def create_post(metadata: Post, account: ConnectedAccount):
             'nsfw': metadata.nsfw or False,
             'language_id': 0,
             'body': metadata.message,
-            'url': None,
+            'url': metadata.lemmy_image_url or None,
         }
 
         try:
