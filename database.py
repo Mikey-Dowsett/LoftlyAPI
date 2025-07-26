@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import aiofiles
-import asyncio
+import stripe
 
 import models
 
@@ -10,9 +10,10 @@ load_dotenv()
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
+stripe.api_key = os.getenv("STRIPE_API_KEY")
 
 async def load_images(img_list: list[str], folder_path: str):
-    supabase: Client = create_client(url, key)
     os.makedirs("temp_images", exist_ok=True)
     paths = []
 
@@ -55,7 +56,6 @@ def delete_images(local_paths: list[str]) -> None:
 
 
 def upload_post_history(metadata: models.Post, platforms):
-    supabase: Client = create_client(url, key)
     try:
         result = supabase.table('posts').insert({
             'user_id': metadata.user_id,
@@ -93,3 +93,32 @@ def upload_post_history(metadata: models.Post, platforms):
     except Exception as e:
         print(f'Error {e}')
         return None
+
+async def create_or_fetch_customer(user_id):
+    # Lookup user from Supabase
+    try:
+        print("Fetching user from Supabase...")
+        user = (supabase.table("subscriptions")
+                .select("stripe_customer_id", "email")
+                .eq("user_id", user_id)
+                .single()
+                .execute()
+                .data)
+
+        if user and user["stripe_customer_id"]:
+            return user["stripe_customer_id"]
+
+        # If no customer yet, create it in Stripe
+        customer = stripe.Customer.create(email=user["email"], metadata={"user_id": user_id})
+        print(f"Created Stripe customer: {customer.id}")
+        # Store the customer ID in Supabase
+        (supabase.table("subscriptions")
+         .update({
+            "stripe_customer_id": customer.id
+            })
+         .eq("user_id", user_id)
+         .execute())
+
+        return customer.id
+    except Exception as e:
+        return {"error": str(e)}

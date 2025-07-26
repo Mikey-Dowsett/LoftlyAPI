@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from io import StringIO
 
 def load_env_from_envvar(enc_file: str = ".env.enc"):
+    load_dotenv()
     key = os.getenv("ENV_DECRYPT_KEY")
     if not key:
         raise RuntimeError("Missing ENV_DECRYPT_KEY")

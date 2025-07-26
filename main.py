@@ -9,7 +9,8 @@ import lemmyapi
 import pixelfedapi
 import database
 
-from fastapi import FastAPI
+import stripe
+from fastapi import FastAPI, Request, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 # --- Constants ---
@@ -28,9 +29,8 @@ app.add_middleware(
 
 #Decrypt secrets
 load_env_from_envvar(".env.enc")
-
-# Now your secrets are available as usual:
-print(os.getenv("SUPABASE_KEY"))
+stripe.api_key = os.getenv("STRIPE_API_KEY")
+endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 # --- Posts ---
 @app.post("/create_post/")
@@ -62,3 +62,97 @@ async def text_post(metadata: models.Post):
 
     return response
 #End of text_post
+
+@app.post("/create-checkout-session")
+async def create_checkout_session(request: Request):
+    body = await request.json()
+    user_id = body.get('user_id')
+    print(f"Creating checkout session for user_id: {user_id}")
+
+    if not user_id or not body.get("price_id"):
+        return {"error": "Missing user_id or price_id"}
+
+    try:
+        customer_id = await database.create_or_fetch_customer(user_id)
+        print(f"Customer ID: {customer_id}")
+
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[{
+                "price": body['price_id'],  # your price ID from Stripe dashboard
+                "quantity": 1
+            }],
+            success_url="http://localhost:9000/post",  # your frontend success page
+            cancel_url="http://localhost:9000/pricing",    # cancel page
+        )
+        return {"id": session.id}
+    except Exception as e:
+        return {"error": str(e)}
+#End of create_checkout_session
+
+@app.post("/webhook")
+async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
+    payload = await request.body()
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, stripe_signature, endpoint_secret
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # 🔄 Handle different subscription events
+    if event["type"] == "customer.subscription.updated":
+        sub = event["data"]["object"]
+        customer_id = sub["customer"]
+        status = sub["status"]
+        price_id = sub["items"]["data"][0]["price"]["id"]
+        ends_at = sub["items"]["data"][0]["current_period_end"]  # Unix timestamp
+        plan = sub["plan"]["metadata"]["name"]
+
+        res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
+        if res.data:
+            user_id = res.data[0]["id"]
+
+            # Update user’s subscription info
+            database.supabase.table("subscriptions").update({
+                "plan_name": plan,
+                "subscription_status": status,
+                "subscription_price_id": price_id,
+                "subscription_ends_at": ends_at
+            }).eq("id", user_id).execute()
+
+    elif event["type"] == "customer.subscription.deleted":
+        subscription = event["data"]["object"]
+        customer_id = subscription["customer"]
+        # Mark user as unsubscribed, remove features, etc.
+
+    elif event["type"] == "customer.subscription.created":
+        sub = event["data"]["object"]
+        customer_id = sub["customer"]
+        status = sub["status"]
+        price_id = sub["items"]["data"][0]["price"]["id"]
+        ends_at = sub["items"]["data"][0]["current_period_end"]  # Unix timestamp
+        plan = sub["plan"]["metadata"]["name"]
+
+        res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
+        if res.data:
+            user_id = res.data[0]["id"]
+
+            # Update user’s subscription info
+            database.supabase.table("subscriptions").update({
+                "plan_name": plan,
+                "subscription_status": status,
+                "subscription_price_id": price_id,
+                "subscription_ends_at": ends_at
+            }).eq("id", user_id).execute()
+
+    # Other events (optional)
+    # elif event["type"] == "invoice.payment_failed":
+    #     ...
+
+    return {"status": "success"}
