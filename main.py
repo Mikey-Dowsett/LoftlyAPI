@@ -92,7 +92,7 @@ async def create_checkout_session(request: Request):
         return {"error": str(e)}
 #End of create_checkout_session
 
-@app.post("/webhook")
+@app.post("/stripe-webhook")
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
     payload = await request.body()
 
@@ -106,13 +106,14 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     # 🔄 Handle different subscription events
-    if event["type"] == "customer.subscription.updated":
+    # Subscription created
+    if event["type"] == "customer.subscription.created":
         sub = event["data"]["object"]
         customer_id = sub["customer"]
         status = sub["status"]
         price_id = sub["items"]["data"][0]["price"]["id"]
         ends_at = sub["items"]["data"][0]["current_period_end"]  # Unix timestamp
-        plan = sub["plan"]["metadata"]["name"]
+        plan = sub["plan"]["metadata"]["tier"]
 
         res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
         if res.data:
@@ -126,33 +127,43 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 "subscription_ends_at": ends_at
             }).eq("id", user_id).execute()
 
+    # Subscription updated
+    elif event["type"] == "customer.subscription.updated":
+        sub = event["data"]["object"]
+        customer_id = sub["customer"]
+        status = sub["status"]
+        price_id = sub["items"]["data"][0]["price"]["id"]
+        ends_at = sub["items"]["data"][0]["current_period_end"]  # Unix timestamp
+        plan = sub["plan"]["metadata"]["tier"]
+
+        res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
+        if res.data:
+            user_id = res.data[0]["id"]
+
+            # Update user’s subscription info
+            database.supabase.table("subscriptions").update({
+                "plan_name": plan,
+                "subscription_status": status,
+                "subscription_price_id": price_id,
+                "subscription_ends_at": ends_at
+            }).eq("id", user_id).execute()
+
+    # Subscription cancelled
     elif event["type"] == "customer.subscription.deleted":
         subscription = event["data"]["object"]
         customer_id = subscription["customer"]
-        # Mark user as unsubscribed, remove features, etc.
-
-    elif event["type"] == "customer.subscription.created":
-        sub = event["data"]["object"]
-        customer_id = sub["customer"]
-        status = sub["status"]
-        price_id = sub["items"]["data"][0]["price"]["id"]
-        ends_at = sub["items"]["data"][0]["current_period_end"]  # Unix timestamp
-        plan = sub["plan"]["metadata"]["name"]
+        # Update user’s subscription info
 
         res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
         if res.data:
             user_id = res.data[0]["id"]
 
-            # Update user’s subscription info
+            # Set subscription to cancelled
             database.supabase.table("subscriptions").update({
-                "plan_name": plan,
-                "subscription_status": status,
-                "subscription_price_id": price_id,
-                "subscription_ends_at": ends_at
+                "plan_name": 'free',
+                "subscription_status": 'cancelled',
+                "subscription_price_id": 0,
+                "subscription_ends_at": None
             }).eq("id", user_id).execute()
-
-    # Other events (optional)
-    # elif event["type"] == "invoice.payment_failed":
-    #     ...
 
     return {"status": "success"}
