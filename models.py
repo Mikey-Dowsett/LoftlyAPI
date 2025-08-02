@@ -48,6 +48,10 @@ class ConnectedAccount(BaseModel):
     lemmy_communities: Optional[List[LemmyCommunity]] = None
 # End of Connected Account
 
+class PortalSessionRequest(BaseModel):
+    customer_id: str
+# End of PortalSessionRequest
+
 # --- Main Post Model ---
 class Post(BaseModel):
     #Core Content

@@ -1,4 +1,8 @@
 import asyncio
+from datetime import datetime
+
+from fastapi.encoders import isoformat
+
 from env_tools import load_env_from_envvar
 import os
 
@@ -17,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 allowed_image_types = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 allowed_video_types = {"video/mp4", "video/webm"}
 
-#Initialize the API and CORS
+# Initialize the API and CORS
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -27,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#Decrypt secrets
+# Decrypt secrets
 load_env_from_envvar(".env.enc")
 stripe.api_key = os.getenv("STRIPE_API_KEY")
 endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -61,7 +65,7 @@ async def text_post(metadata: models.Post):
     database.upload_post_history(metadata, response)
 
     return response
-#End of text_post
+# End of text_post
 
 @app.post("/create-checkout-session")
 async def create_checkout_session(request: Request):
@@ -90,7 +94,16 @@ async def create_checkout_session(request: Request):
         return {"id": session.id}
     except Exception as e:
         return {"error": str(e)}
-#End of create_checkout_session
+# End of create_checkout_session
+
+@app.post("/create-customer-portal-session")
+async def create_customer_portal_session(req: models.PortalSessionRequest):
+    session = stripe.billing_portal.Session.create(
+        customer=req.customer_id,
+        return_url="http://localhost:9000/settings/subscription",
+    )
+    return {"url": session.url}
+# End of create_customer_portal_session
 
 @app.post("/stripe-webhook")
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
@@ -113,6 +126,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         status = sub["status"]
         price_id = sub["items"]["data"][0]["price"]["id"]
         ends_at = sub["items"]["data"][0]["current_period_end"]  # Unix timestamp
+        ends_at_datetime = datetime.utcfromtimestamp(ends_at)
         plan = sub["plan"]["metadata"]["tier"]
 
         res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
@@ -124,16 +138,22 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 "plan_name": plan,
                 "subscription_status": status,
                 "subscription_price_id": price_id,
-                "subscription_ends_at": ends_at
+                "subscription_ends_at": ends_at_datetime.isoformat()
             }).eq("id", user_id).execute()
 
     # Subscription updated
     elif event["type"] == "customer.subscription.updated":
         sub = event["data"]["object"]
         customer_id = sub["customer"]
+
+        # ⛔ Skip if this update is just reflecting a scheduled cancellation
+        if sub["status"] == "canceled":
+            return {"status": "canceled plan"}
+
         status = sub["status"]
         price_id = sub["items"]["data"][0]["price"]["id"]
         ends_at = sub["items"]["data"][0]["current_period_end"]  # Unix timestamp
+        ends_at_datetime = datetime.utcfromtimestamp(ends_at)
         plan = sub["plan"]["metadata"]["tier"]
 
         res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
@@ -145,7 +165,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 "plan_name": plan,
                 "subscription_status": status,
                 "subscription_price_id": price_id,
-                "subscription_ends_at": ends_at
+                "subscription_ends_at": ends_at_datetime.isoformat()
             }).eq("id", user_id).execute()
 
     # Subscription cancelled
@@ -167,3 +187,4 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             }).eq("id", user_id).execute()
 
     return {"status": "success"}
+# End of stripe_webhook
