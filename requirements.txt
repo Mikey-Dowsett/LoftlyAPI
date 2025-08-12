@@ -8,3 +8,4 @@ supabase~=2.16.0
 requests~=2.32.4
 cryptography~=45.0.5
 pillow~=11.3.0
+uvicorn[standard]~=0.30.6

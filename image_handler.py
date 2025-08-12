@@ -1,5 +1,6 @@
-from PIL import Image
 import io
+
+from PIL import Image
 
 
 def compress_image(content: str, mime_type: str, target_size_kb: int = 976) -> bytes:

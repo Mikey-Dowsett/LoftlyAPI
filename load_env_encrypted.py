@@ -1,7 +1,8 @@
-import os
+from io import StringIO
+
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from io import StringIO
+
 
 def load_encrypted_env(encrypted_file_path: str, key: str):
     fernet = Fernet(key.encode())

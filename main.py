@@ -1,31 +1,29 @@
 import asyncio
-from datetime import datetime
-
-from fastapi.encoders import isoformat
-
-from env_tools import load_env_from_envvar
 import os
-
-import models
-import bluesky
-import mastodonapi
-import lemmyapi
-import pixelfedapi
-import database
+from datetime import datetime
 
 import stripe
 from fastapi import FastAPI, Request, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import bluesky
+import database
+import lemmyapi
+import mastodonapi
+import models
+import pixelfedapi
+from env_tools import load_env_from_envvar
+
 # --- Constants ---
 allowed_image_types = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 allowed_video_types = {"video/mp4", "video/webm"}
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:9000")
 
 # Initialize the API and CORS
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or ["https://yourfrontend.com"]
+    allow_origins=["http://localhost:9000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,6 +33,7 @@ app.add_middleware(
 load_env_from_envvar(".env.enc")
 stripe.api_key = os.getenv("STRIPE_API_KEY")
 endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
 
 # --- Posts ---
 @app.post("/create-post/")
@@ -65,6 +64,8 @@ async def text_post(metadata: models.Post):
     database.upload_post_history(metadata, response)
 
     return response
+
+
 # End of text_post
 
 @app.post("/delete-user")
@@ -74,6 +75,8 @@ async def delete_user(request: models.DeleteUserRequest):
         return database.delete_user(request.user_id)
     except Exception as e:
         return {"error": str(e)}
+
+
 # End of delete_user
 
 @app.post("/create-checkout-session")
@@ -97,21 +100,25 @@ async def create_checkout_session(request: Request):
                 "price": body['price_id'],  # your price ID from Stripe dashboard
                 "quantity": 1
             }],
-            success_url="http://localhost:9000/post",  # your frontend success page
-            cancel_url="http://localhost:9000/pricing",    # cancel page
+            success_url=f"{FRONTEND_BASE_URL}/post",  # your frontend success page
+            cancel_url=f"{FRONTEND_BASE_URL}/pricing",  # cancel page
         )
         return {"id": session.id}
     except Exception as e:
         return {"error": str(e)}
+
+
 # End of create_checkout_session
 
 @app.post("/create-customer-portal-session")
 async def create_customer_portal_session(req: models.PortalSessionRequest):
     session = stripe.billing_portal.Session.create(
         customer=req.customer_id,
-        return_url="http://localhost:9000/settings/subscription",
+        return_url=f"{FRONTEND_BASE_URL}/settings/subscription",
     )
     return {"url": session.url}
+
+
 # End of create_customer_portal_session
 
 @app.post("/stripe-webhook")

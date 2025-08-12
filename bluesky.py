@@ -1,17 +1,14 @@
-import mimetypes
-import os
 import asyncio
+import mimetypes
 
-from atproto_client.utils import TextBuilder
+from atproto import Client
+from atproto_client.models.app.bsky import embed
 
 import image_handler
 import models
-import database
-from atproto import Client, client_utils
-from urllib.parse import urlparse
-from atproto_client.models.app.bsky import embed
 
 client = Client()
+
 
 # --- Upload Functions ---
 async def create_post(metadata: models.Post, account: models.ConnectedAccount) -> dict:
@@ -21,14 +18,14 @@ async def create_post(metadata: models.Post, account: models.ConnectedAccount) -
         return models.BuildPostResponse(
             account, 'error', f"Failed to initialize client: {e}")
 
-    #Create the message
+    # Create the message
     upload_responses = []
     local_paths = []
 
-    #Download any images
+    # Download any images
     if metadata.media_filenames and len(metadata.media_filenames) > 0:
         local_paths = metadata.media_filenames
-        #Compress Images
+        # Compress Images
         for i in range(min(len(local_paths), 4)):
             mime_type, _ = mimetypes.guess_type(local_paths[i])
             image_bytes = image_handler.compress_image(local_paths[i], mime_type)
@@ -44,9 +41,9 @@ async def create_post(metadata: models.Post, account: models.ConnectedAccount) -
                 return models.BuildPostResponse(
                     account, 'error', f"Upload failed for {local_paths[i]}")
 
-    #Upload the post
+    # Upload the post
     try:
-        #Upload Images
+        # Upload Images
         if len(upload_responses) > 0:
             images = [
                 embed.images.Image(
@@ -56,7 +53,7 @@ async def create_post(metadata: models.Post, account: models.ConnectedAccount) -
             ]
             image_embed = embed.images.Main(images=images)
             post = client.send_post(text=metadata.message, embed=image_embed)
-        #Or a plain text message
+        # Or a plain text message
         else:
             post = client.send_post(text=metadata.message)
 

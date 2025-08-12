@@ -1,12 +1,12 @@
-import os
 import mimetypes
-import requests
-
 from urllib.parse import urljoin
 
+import requests
+
 import models
-from models import Post, ConnectedAccount
 from image_handler import compress_image
+from models import Post, ConnectedAccount
+
 
 # -- LEMMY POST CREATION --
 async def create_post(metadata: Post, account: ConnectedAccount):
@@ -69,6 +69,7 @@ async def create_post(metadata: Post, account: ConnectedAccount):
                     account, 'error', str(e)))
 
     return results
+
 
 # -- IMAGE HOSTING PLACEHOLDER --
 def upload_image_to_your_host(image_path: str, image_bytes: bytes) -> str:

@@ -1,7 +1,9 @@
 import os
+from io import StringIO
+
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from io import StringIO
+
 
 def load_env_from_envvar(enc_file: str = ".env.enc"):
     load_dotenv()

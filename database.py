@@ -1,8 +1,9 @@
 import os
-from dotenv import load_dotenv
-from supabase import create_client, Client
+
 import aiofiles
 import stripe
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
 import models
 
@@ -12,6 +13,7 @@ url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 stripe.api_key = os.getenv("STRIPE_API_KEY")
+
 
 async def load_images(img_list: list[str], folder_path: str):
     os.makedirs("temp_images", exist_ok=True)
@@ -31,19 +33,20 @@ async def load_images(img_list: list[str], folder_path: str):
         remote_path = os.path.join(folder_path, match['name'])
         local_path = os.path.join('temp_images', match['name'])
 
-        #Download image
+        # Download image
         try:
             response = supabase.storage.from_('images').download(remote_path)
             async with aiofiles.open(local_path, "wb") as f:
                 await f.write(response)
             paths.append(local_path)
 
-            #Delete the Image
+            # Delete the Image
             supabase.storage.from_('images').remove([remote_path])
         except Exception as e:
             print(e)
 
     return paths
+
 
 def delete_images(local_paths: list[str]) -> None:
     if len(local_paths) == 0:
@@ -93,6 +96,8 @@ def upload_post_history(metadata: models.Post, platforms):
     except Exception as e:
         print(f'Error {e}')
         return None
+
+
 # End of upload_post_history
 
 async def downgrade_user(user_id: str, plan: str = "free"):
@@ -135,6 +140,8 @@ async def downgrade_user(user_id: str, plan: str = "free"):
     except Exception as e:
         print(f'Error {e}')
         return {"error": str(e)}
+
+
 # End of downgrade_user
 
 async def create_or_fetch_customer(user_id):
@@ -158,13 +165,14 @@ async def create_or_fetch_customer(user_id):
         (supabase.table("subscriptions")
          .update({
             "stripe_customer_id": customer.id
-            })
+        })
          .eq("user_id", user_id)
          .execute())
 
         return customer.id
     except Exception as e:
         return {"error": str(e)}
+
 
 def delete_user(user_id: str):
     try:

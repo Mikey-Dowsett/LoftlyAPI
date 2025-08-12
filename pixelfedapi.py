@@ -1,11 +1,11 @@
-import os
 import mimetypes
-import asyncio
+import os
 
 from mastodon import Mastodon, MastodonError
+
 import image_handler
-import database
 import models
+
 
 # --- Upload to Pixelfed ---
 async def create_post(metadata: models.Post, account: models.ConnectedAccount) -> dict:
