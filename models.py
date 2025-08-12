@@ -52,6 +52,10 @@ class PortalSessionRequest(BaseModel):
     customer_id: str
 # End of PortalSessionRequest
 
+class DeleteUserRequest(BaseModel):
+    user_id: str
+# End of DeleteUserRequest
+
 # --- Main Post Model ---
 class Post(BaseModel):
     #Core Content

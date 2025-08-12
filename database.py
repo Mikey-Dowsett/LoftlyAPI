@@ -93,6 +93,49 @@ def upload_post_history(metadata: models.Post, platforms):
     except Exception as e:
         print(f'Error {e}')
         return None
+# End of upload_post_history
+
+async def downgrade_user(user_id: str, plan: str = "free"):
+    try:
+        # Step 1: Get all users and their plan/account_limit
+        account_limit = (supabase.table("plans")
+                         .select("account_limit")
+                         .eq("name", plan)
+                         .single()
+                         .execute()
+                         .data)['account_limit']
+        print(account_limit)
+        print(user_id)
+
+        # Step 2: Get all connected accounts (enabled ones first)
+        accounts = (supabase.table("linked_accounts")
+                    .select()
+                    .eq("user_id", user_id)
+                    .execute()
+                    .data)
+        print(accounts)
+
+        count: int = 0
+        for account in accounts:
+            count += 1
+            if account['enabled'] and count > account_limit:
+                account['enabled'] = False
+        # End of for loop
+
+        # Step 3: Update the accounts in Supabase
+        for account in accounts:
+            (supabase.table("linked_accounts")
+             .update({"enabled": account['enabled']})
+             .eq("id", account['id'])
+             .execute())
+        # End of for loop
+
+        return {"status": "User downgraded successfully", "plan": plan}
+
+    except Exception as e:
+        print(f'Error {e}')
+        return {"error": str(e)}
+# End of downgrade_user
 
 async def create_or_fetch_customer(user_id):
     # Lookup user from Supabase
@@ -122,3 +165,19 @@ async def create_or_fetch_customer(user_id):
         return customer.id
     except Exception as e:
         return {"error": str(e)}
+
+def delete_user(user_id: str):
+    try:
+        # Delete user from Supabase
+        supabase.auth.admin.delete_user(user_id)
+        user = (supabase.table("subscriptions")
+                .select("stripe_customer_id", "email")
+                .eq("user_id", user_id)
+                .single()
+                .execute()
+                .data)
+        if user and user["stripe_customer_id"]:
+            stripe.Customer.delete(user["stripe_customer_id"])
+        return {"status": "User deleted successfully"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

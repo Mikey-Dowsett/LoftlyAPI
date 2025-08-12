@@ -37,7 +37,7 @@ stripe.api_key = os.getenv("STRIPE_API_KEY")
 endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 # --- Posts ---
-@app.post("/create_post/")
+@app.post("/create-post/")
 async def text_post(metadata: models.Post):
     if metadata.media_filenames:
         metadata.media_filenames = \
@@ -66,6 +66,15 @@ async def text_post(metadata: models.Post):
 
     return response
 # End of text_post
+
+@app.post("/delete-user")
+async def delete_user(request: models.DeleteUserRequest):
+    try:
+        # Delete user from Supabase
+        return database.delete_user(request.user_id)
+    except Exception as e:
+        return {"error": str(e)}
+# End of delete_user
 
 @app.post("/create-checkout-session")
 async def create_checkout_session(request: Request):
@@ -156,9 +165,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         ends_at_datetime = datetime.utcfromtimestamp(ends_at)
         plan = sub["plan"]["metadata"]["tier"]
 
-        res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
+        res = database.supabase.table("subscriptions").select().eq("stripe_customer_id", customer_id).execute()
         if res.data:
-            user_id = res.data[0]["id"]
+            row_id = res.data[0]["id"]
+            user_id = res.data[0]["user_id"]
 
             # Update user’s subscription info
             database.supabase.table("subscriptions").update({
@@ -166,7 +176,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 "subscription_status": status,
                 "subscription_price_id": price_id,
                 "subscription_ends_at": ends_at_datetime.isoformat()
-            }).eq("id", user_id).execute()
+            }).eq("id", row_id).execute()
+            await database.downgrade_user(user_id, plan)
 
     # Subscription cancelled
     elif event["type"] == "customer.subscription.deleted":
@@ -174,9 +185,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         customer_id = subscription["customer"]
         # Update user’s subscription info
 
-        res = database.supabase.table("subscriptions").select("id").eq("stripe_customer_id", customer_id).execute()
+        res = database.supabase.table("subscriptions").select().eq("stripe_customer_id", customer_id).execute()
         if res.data:
-            user_id = res.data[0]["id"]
+            row_id = res.data[0]["id"]
+            user_id = res.data[0]["user_id"]
 
             # Set subscription to cancelled
             database.supabase.table("subscriptions").update({
@@ -184,7 +196,8 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 "subscription_status": 'cancelled',
                 "subscription_price_id": 0,
                 "subscription_ends_at": None
-            }).eq("id", user_id).execute()
+            }).eq("id", row_id).execute()
+            await database.downgrade_user(user_id)
 
     return {"status": "success"}
 # End of stripe_webhook
