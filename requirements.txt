@@ -1,0 +1,10 @@
+stripe~=12.3.0
+fastapi~=0.115.14
+pydantic~=2.11.7
+atproto~=0.0.61
+aiofiles~=24.1.0
+python-dotenv~=1.1.1
+supabase~=2.16.0
+requests~=2.32.4
+cryptography~=45.0.5
+pillow~=11.3.0
