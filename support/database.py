@@ -2,21 +2,20 @@ import os
 
 import aiofiles
 import stripe
-from dotenv import load_dotenv
 from supabase import create_client, Client
 
-import models
+from support import models
+from support.logger_config import logger
 
-load_dotenv()
 
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
+url: str = os.getenv("SUPABASE_URL")
+key: str = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
+
 stripe.api_key = os.getenv("STRIPE_API_KEY")
 
-
 async def load_images(img_list: list[str], folder_path: str):
-    os.makedirs("temp_images", exist_ok=True)
+    os.makedirs("../temp_images", exist_ok=True)
     paths = []
 
     # List all files in the given folder
@@ -26,12 +25,12 @@ async def load_images(img_list: list[str], folder_path: str):
         # Look for a file with the given base name and any extension
         match = next((f for f in files if f['name'] == img_name), None)
         if not match:
-            print(f"❌ No file found in '{'images'}/{folder_path}' starting with '{img_name}'")
+            logger.warn(f"❌ No file found in '{'images'}/{folder_path}' starting with '{img_name}'")
             continue
 
         # Construct full remote path and local path
         remote_path = os.path.join(folder_path, match['name'])
-        local_path = os.path.join('temp_images', match['name'])
+        local_path = os.path.join('../temp_images', match['name'])
 
         # Download image
         try:
@@ -42,8 +41,9 @@ async def load_images(img_list: list[str], folder_path: str):
 
             # Delete the Image
             supabase.storage.from_('images').remove([remote_path])
-        except Exception as e:
-            print(e)
+        except Exception as error:
+            logger.error(f'Failed to delete image: {error}')
+            continue
 
     return paths
 
@@ -54,8 +54,8 @@ def delete_images(local_paths: list[str]) -> None:
     for x in range(min(len(local_paths), 4)):
         try:
             os.remove(local_paths[x])
-        except Exception as e:
-            print(f"Warning: Could not delete {local_paths[x]}: {e}")
+        except Exception as error:
+            logger.error(f"Warning: Could not delete {local_paths[x]}: {error}")
 
 
 def upload_post_history(metadata: models.Post, platforms):
@@ -93,14 +93,23 @@ def upload_post_history(metadata: models.Post, platforms):
         # Insert all rows in one call
         response = supabase.table('account_posts').insert(rows).execute()
         return response
-    except Exception as e:
-        print(f'Error {e}')
-        return None
+    except Exception as error:
+        logger.error(f'Failed to upload post history: {error}')
+        return {"status": "error", "message": "Failed to upload post history"}
 
 
 # End of upload_post_history
 
-async def downgrade_user(user_id: str, plan: str = "free"):
+def update_subscription(row_id, plan, status, price_id, ends_at_datetime):
+    supabase.table("subscriptions").update({
+        "plan_name": plan,
+        "subscription_status": status,
+        "subscription_price_id": price_id,
+        "subscription_ends_at": ends_at_datetime.isoformat() if ends_at_datetime else None
+    }).eq("id", row_id).execute()
+# End of update_subscription
+
+def update_user_limits(user_id: str, plan: str = "free"):
     try:
         # Step 1: Get all users and their plan/account_limit
         account_limit = (supabase.table("plans")
@@ -109,8 +118,6 @@ async def downgrade_user(user_id: str, plan: str = "free"):
                          .single()
                          .execute()
                          .data)['account_limit']
-        print(account_limit)
-        print(user_id)
 
         # Step 2: Get all connected accounts (enabled ones first)
         accounts = (supabase.table("linked_accounts")
@@ -118,7 +125,6 @@ async def downgrade_user(user_id: str, plan: str = "free"):
                     .eq("user_id", user_id)
                     .execute()
                     .data)
-        print(accounts)
 
         count: int = 0
         for account in accounts:
@@ -137,17 +143,14 @@ async def downgrade_user(user_id: str, plan: str = "free"):
 
         return {"status": "User downgraded successfully", "plan": plan}
 
-    except Exception as e:
-        print(f'Error {e}')
-        return {"error": str(e)}
-
-
+    except Exception as error:
+        logger.error(f"Error updating user limits: {error}")
+        return {"status": "error", "message": "Failed to update user limits"}
 # End of downgrade_user
 
-async def create_or_fetch_customer(user_id):
+def create_or_fetch_customer(user_id):
     # Lookup user from Supabase
     try:
-        print("Fetching user from Supabase...")
         user = (supabase.table("subscriptions")
                 .select("stripe_customer_id", "email")
                 .eq("user_id", user_id)
@@ -160,7 +163,6 @@ async def create_or_fetch_customer(user_id):
 
         # If no customer yet, create it in Stripe
         customer = stripe.Customer.create(email=user["email"], metadata={"user_id": user_id})
-        print(f"Created Stripe customer: {customer.id}")
         # Store the customer ID in Supabase
         (supabase.table("subscriptions")
          .update({
@@ -171,7 +173,9 @@ async def create_or_fetch_customer(user_id):
 
         return customer.id
     except Exception as e:
-        return {"error": str(e)}
+        logger.error(f"Error creating stripe customer: {e}")
+        return {"status": "error", "message": "Failed to create or fetch customer"}
+# End of create_or_fetch_customer
 
 
 def delete_user(user_id: str):
@@ -187,5 +191,7 @@ def delete_user(user_id: str):
         if user and user["stripe_customer_id"]:
             stripe.Customer.delete(user["stripe_customer_id"])
         return {"status": "User deleted successfully"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    except Exception as error:
+        logger.error(f"Error deleting user {user_id}: {error}")
+        return {"status": "error", "message": "Failed to delete user"}
+# End of delete_user
