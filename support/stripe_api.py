@@ -54,7 +54,7 @@ async def create_customer_portal_session(request: models.PortalSessionRequest):
 # End of create_customer_portal_session
 
 
-@stripe_router.post("/stripe-webhook")
+@stripe_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
     payload = await request.body()
 
