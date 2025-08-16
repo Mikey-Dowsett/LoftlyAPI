@@ -179,9 +179,17 @@ def create_or_fetch_customer(user_id):
 
 
 def delete_user(user_id: str):
+    # Delete user files from Supabase Storage
     try:
-        # Delete user from Supabase
-        supabase.auth.admin.delete_user(user_id)
+        delete_folder("images", user_id)
+        delete_folder("videos", user_id)
+    except Exception as error:
+        logger.error(f"Failed to delete user {user_id} folders: {error}")
+        return {"status": "error", "message": "Failed to delete user folders"}
+
+    # Delete user from Stripe
+    try:
+
         user = (supabase.table("subscriptions")
                 .select("stripe_customer_id", "email")
                 .eq("user_id", user_id)
@@ -190,8 +198,46 @@ def delete_user(user_id: str):
                 .data)
         if user and user["stripe_customer_id"]:
             stripe.Customer.delete(user["stripe_customer_id"])
-        return {"status": "User deleted successfully"}
     except Exception as error:
         logger.error(f"Error deleting user {user_id}: {error}")
         return {"status": "error", "message": "Failed to delete user"}
+
+    # Delete user from Supabase Auth
+    try:
+        supabase.auth.admin.delete_user(user_id)
+    except Exception as error:
+        logger.error(f"Failed to delete user {user_id} from Supabase Auth: {error}")
+        return {"status": "error", "message": "Failed to delete user from Supabase Auth"}
+
+    return {"status": "User deleted successfully"}
 # End of delete_user
+
+def delete_folder(bucket_name: str, folder_path: str):
+    """
+    Recursively delete all files under a given folder path in Supabase Storage.
+    """
+    # Ensure folder path ends with slash
+    if not folder_path.endswith("/"):
+        folder_path += "/"
+
+    # Recursive helper
+    def delete_recursive(path):
+        items = supabase.storage.from_(bucket_name).list(path=path)
+        files_to_delete = []
+
+        for item in items:
+            if item["metadata"] is None:
+                # This is a subfolder
+                delete_recursive(f"{path}{item['name']}")
+            else:
+                # This is a file
+                files_to_delete.append(f"{path}{item['name']}")
+
+        # Bulk delete files in this folder
+        if files_to_delete:
+            supabase.storage.from_(bucket_name).remove(files_to_delete)
+            logger.info(f"Successfully deleted {len(files_to_delete)} files from {folder_path}")
+
+    delete_recursive(folder_path)
+    logger.info(f"Folder '{folder_path}' deleted (if it contained any files).")
+# End of delete_folder

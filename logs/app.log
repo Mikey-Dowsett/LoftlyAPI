@@ -1,0 +1,15 @@
+2025-08-15 11:24:38,720 - ERROR - Error deleting user 0091ccbd-b480-45bb-b0c7-bd1fd5bff30a: Logger.log() missing 1 required positional argument: 'msg'
+2025-08-15 11:31:00,482 - ERROR - Error deleting user e55fefbf-ffb1-4b6e-88ff-8f6a0246628e: Logger.log() missing 1 required positional argument: 'msg'
+2025-08-15 11:37:22,973 - INFO - Successfully deleted 1 files from 27426730-a5e7-4261-b7e1-4fcd7d57a652/
+2025-08-15 11:37:22,974 - INFO - Folder '27426730-a5e7-4261-b7e1-4fcd7d57a652/' deleted (if it contained any files).
+2025-08-15 11:37:23,211 - INFO - Successfully deleted 1 files from 27426730-a5e7-4261-b7e1-4fcd7d57a652/
+2025-08-15 11:37:23,212 - INFO - Folder '27426730-a5e7-4261-b7e1-4fcd7d57a652/' deleted (if it contained any files).
+2025-08-15 13:11:39,665 - WARNING - No subscription found for customer_id: cus_SrpHL69ZDuPDDH
+2025-08-15 16:21:53,171 - INFO - Successfully deleted 1 files from 572a7a74-22e1-4c9e-adbe-96c0538f4028/
+2025-08-15 16:21:53,171 - INFO - Folder '572a7a74-22e1-4c9e-adbe-96c0538f4028/' deleted (if it contained any files).
+2025-08-15 16:21:53,550 - INFO - Successfully deleted 1 files from 572a7a74-22e1-4c9e-adbe-96c0538f4028/
+2025-08-15 16:21:53,550 - INFO - Folder '572a7a74-22e1-4c9e-adbe-96c0538f4028/' deleted (if it contained any files).
+2025-08-15 22:15:53,341 - INFO - Successfully deleted 1 files from 81a09588-0eac-43e4-8a31-ece7730d3df2/
+2025-08-15 22:15:53,341 - INFO - Folder '81a09588-0eac-43e4-8a31-ece7730d3df2/' deleted (if it contained any files).
+2025-08-15 22:15:53,954 - INFO - Successfully deleted 1 files from 81a09588-0eac-43e4-8a31-ece7730d3df2/
+2025-08-15 22:15:53,954 - INFO - Folder '81a09588-0eac-43e4-8a31-ece7730d3df2/' deleted (if it contained any files).
