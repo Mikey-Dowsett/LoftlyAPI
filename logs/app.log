@@ -13,3 +13,7 @@
 2025-08-15 22:15:53,341 - INFO - Folder '81a09588-0eac-43e4-8a31-ece7730d3df2/' deleted (if it contained any files).
 2025-08-15 22:15:53,954 - INFO - Successfully deleted 1 files from 81a09588-0eac-43e4-8a31-ece7730d3df2/
 2025-08-15 22:15:53,954 - INFO - Folder '81a09588-0eac-43e4-8a31-ece7730d3df2/' deleted (if it contained any files).
+2025-08-16 16:52:31,991 - ERROR - Error creating session: Request req_jvnuELrOMU5pCA: The price specified is inactive. This field only accepts active prices.
+2025-08-16 16:52:37,896 - ERROR - Error creating session: Request req_tUJSkq6l9ZPtkM: The price specified is inactive. This field only accepts active prices.
+2025-08-16 16:53:16,489 - ERROR - Error creating session: Request req_VXuu0rVwEKS7hY: The price specified is inactive. This field only accepts active prices.
+2025-08-16 17:10:41,420 - ERROR - Error creating session: Request req_YmrhIChEyRcbq0: The price specified is inactive. This field only accepts active prices.

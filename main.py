@@ -18,7 +18,7 @@ app = FastAPI()
 app.include_router(stripe_api.stripe_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://loftly.fly.dev"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
